@@ -25,9 +25,11 @@ fi
     exit 1
 }
 echo "download_checkpoints.sh: using $PYTHON_BIN"
+# Slow or distant links (e.g. a mirror) need longer timeouts than huggingface_hub's 10 s defaults.
+export HF_HUB_DOWNLOAD_TIMEOUT="${HF_HUB_DOWNLOAD_TIMEOUT:-120}" HF_HUB_ETAG_TIMEOUT="${HF_HUB_ETAG_TIMEOUT:-60}"
 MANIFEST="${ROBOSYN_TASK_MANIFEST:-$SCRIPT_DIR/task_checkpoints.json}"
 "$PYTHON_BIN" - "$SCRIPT_DIR" "$MANIFEST" "$@" <<'PY'
-import json, sys
+import hashlib, json, sys, time
 from pathlib import Path
 policy_root, manifest_path, only = Path(sys.argv[1]), Path(sys.argv[2]), set(sys.argv[3:])
 sys.path.insert(0, str(policy_root.parent.parent))
@@ -56,6 +58,33 @@ for task, entry in manifest["tasks"].items():
         continue
     seen[key] = task
     print(f"{task}: {key[0]}@{key[1] or 'main'} -> {dest}")
-    snapshot_download(repo_id=key[0], revision=key[1], repo_type="model", local_dir=str(dest))
+    # Retry interrupted downloads (snapshot_download resumes the files it already has).
+    for attempt in range(1, 7):
+        try:
+            snapshot_download(repo_id=key[0], revision=key[1], repo_type="model", local_dir=str(dest))
+            break
+        except Exception as exc:  # network timeouts, mirror hiccups
+            if attempt == 6:
+                raise
+            wait = min(60, 10 * attempt)
+            print(f"  download attempt {attempt}/6 failed ({type(exc).__name__}: {str(exc)[:120]}); retrying in {wait} s")
+            time.sleep(wait)
+    # Integrity: every file listed in the export manifest must match its sha256.
+    manifest_file = dest / "robosyn_export_manifest.json"
+    if manifest_file.is_file():
+        files = json.loads(manifest_file.read_text()).get("files", {})
+        items = list(files.items()) if isinstance(files, dict) else [(f["path"], f) for f in files]
+        bad = []
+        for rel, info in items:
+            info = info if isinstance(info, dict) else {"sha256": info}
+            digest = hashlib.sha256()
+            with open(dest / rel, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 22), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != info.get("sha256"):
+                bad.append(rel)
+        if bad:
+            sys.exit(f"{dest}: {len(bad)} file(s) do not match robosyn_export_manifest.json, e.g. {bad[:3]}; delete them and re-run")
+        print(f"  verified {len(items)} files against robosyn_export_manifest.json")
 print(f"downloaded {len(seen)} distinct checkpoint(s)")
 PY
