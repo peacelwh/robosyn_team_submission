@@ -1,0 +1,112 @@
+{
+  "schema_version": "robosyn.submission.v1",
+  "generated_at": "2026-10-04",
+  "note": "robosyn_team fallback: C3-40k for 8 tasks, D3-40k for drawer_open_place and items_handover (single multi-task pi0.5 checkpoints, pinned HF revisions). drawer_open_place -> Bluexxx/pi05_robosyn_all10@639f4364a131a5c8c44ecb6bb693aea39260aabf. items_handover -> Bluexxx/pi05_robosyn_all10@639f4364a131a5c8c44ecb6bb693aea39260aabf.",
+  "defaults": {
+    "hf_revision": null,
+    "checkpoint_marker": "config.json",
+    "usr_args": {}
+  },
+  "tasks": {
+    "table_rearrangement": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "b028c63ee4313594c23eb6b179739da9ba9d106c"
+    },
+    "click_bell": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "b028c63ee4313594c23eb6b179739da9ba9d106c"
+    },
+    "water_pouring": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "b028c63ee4313594c23eb6b179739da9ba9d106c"
+    },
+    "handle_basket": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "b028c63ee4313594c23eb6b179739da9ba9d106c"
+    },
+    "items_handover": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "639f4364a131a5c8c44ecb6bb693aea39260aabf"
+    },
+    "drawer_open_place": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "639f4364a131a5c8c44ecb6bb693aea39260aabf"
+    },
+    "mixer_operating": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "b028c63ee4313594c23eb6b179739da9ba9d106c"
+    },
+    "item_assembly": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "b028c63ee4313594c23eb6b179739da9ba9d106c"
+    },
+    "manipulate_pipette": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "b028c63ee4313594c23eb6b179739da9ba9d106c"
+    },
+    "sample_loading": {
+      "family": "pi05",
+      "checkpoint_marker": "params",
+      "usr_args": {
+        "train_config_name": "pi05_base_robosynchallenge_full",
+        "pi0_step": 50
+      },
+      "hf_repo": "Bluexxx/pi05_robosyn_all10",
+      "hf_revision": "b028c63ee4313594c23eb6b179739da9ba9d106c"
+    }
+  }
+}
