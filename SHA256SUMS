@@ -1,4 +1,4 @@
-5bd83bd31f8c9339ce8b503d780ab6408df84fae96cb2ac99b057a8f8a56f19d  ./README.md
+75c68bb05305c05c97518da807c9373a627e15093574de58a3aad30970c63f38  ./README.md
 581f00923c2e0ed9cb371af326fbcc35f96c1dd5b6a0796a4fa710b948cc14d4  ./policy/robosyn_team/__init__.py
 5e6a4b6d5986a47d135db26bc75f1f17d4d0266440ef5e154777f01b1b89c9d8  ./policy/robosyn_team/deploy_policy.py
 14a3ac0b91178f1c2fae5f87d398eb51b0747dfa859c23ba8e4b6bcb9e9082d0  ./policy/robosyn_team/deploy_policy.yml
@@ -6,4 +6,4 @@ cc1716dad637298d675626adc56a67a8dd4faea391afa259c2bf97ab2edf4874  ./policy/robos
 8bbbcf0f65413f828863ccce047602e56cfcd39053d37926aceb8a6f31eb892a  ./policy/robosyn_team/eval.sh
 9c7c38379cd5c7378e086d1cbe7fe8abcef265d22d26086e24f73613568e1a81  ./policy/robosyn_team/pi05_runtime.py
 fc3f3fc84ce963a979ae1b7ad5f36f466d154dcdf444148ca03e104d7fb8cd9d  ./policy/robosyn_team/setup_env.sh
-acae0778618620adfa2c7deffd5440141b1ca6e17d4e47a1656de6994c4c12ac  ./policy/robosyn_team/task_checkpoints.json
+875211709b895be8ac37231c1bbe575de5d1836e229f43fe8df0b7f3e5f425c6  ./policy/robosyn_team/task_checkpoints.json

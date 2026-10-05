@@ -53,6 +53,11 @@ Notes for the evaluation machine:
   580) and RTX 3090 (driver 535).
 * **Slow networks:** `setup_env.sh` raises uv's download timeout to 600 s (`UV_HTTP_TIMEOUT`) and
   retries `uv sync` up to three times; the large CUDA wheels otherwise time out on slow links.
+  `download_checkpoints.sh` likewise uses longer Hugging Face timeouts, retries interrupted
+  downloads and checks every file against the sha256 list shipped with the checkpoint.
+* **ffmpeg:** the official evaluator records episode videos through `ffmpeg`
+  (`eval_video_log: true` in `deploy_policy.yml`, as in the official baselines), so
+  `ffmpeg` must be on `PATH`.
 * **Short paths:** DexSim 0.4.3 aborts in `OptiXMaterialMgr::CreateMaterial`
   (`DFString.h:94`) when the checkout sits under a long directory prefix (we hit it
   with a 44-character prefix).  Keep `RoboSynChallenge/` and `EmbodiChain/` under a
