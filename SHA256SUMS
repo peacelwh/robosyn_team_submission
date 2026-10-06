@@ -6,4 +6,4 @@ cc1716dad637298d675626adc56a67a8dd4faea391afa259c2bf97ab2edf4874  ./policy/robos
 8bbbcf0f65413f828863ccce047602e56cfcd39053d37926aceb8a6f31eb892a  ./policy/robosyn_team/eval.sh
 9c7c38379cd5c7378e086d1cbe7fe8abcef265d22d26086e24f73613568e1a81  ./policy/robosyn_team/pi05_runtime.py
 fc3f3fc84ce963a979ae1b7ad5f36f466d154dcdf444148ca03e104d7fb8cd9d  ./policy/robosyn_team/setup_env.sh
-875211709b895be8ac37231c1bbe575de5d1836e229f43fe8df0b7f3e5f425c6  ./policy/robosyn_team/task_checkpoints.json
+c677ced251c38ac3c64bb3bdc88ff5a91edd8f598ecb200c4ecfc31ea1b08a77  ./policy/robosyn_team/task_checkpoints.json
