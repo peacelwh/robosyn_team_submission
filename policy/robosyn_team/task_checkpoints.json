@@ -1,7 +1,7 @@
 {
   "schema_version": "robosyn.submission.v1",
-  "generated_at": "2026-10-05",
-  "note": "robosyn_team final: F1-40k, one multi-task pi0.5 checkpoint (official synthetic data + widened-range expert demos) for all ten tasks, pinned HF revision.",
+  "generated_at": "2026-10-06",
+  "note": "robosyn_team final: F7-40k, one multi-task pi0.5 checkpoint (official synthetic data + expert demos, including demos under widened randomization ranges) for all ten tasks, pinned HF revision.",
   "defaults": {
     "hf_revision": null,
     "checkpoint_marker": "config.json",
@@ -16,7 +16,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "click_bell": {
       "family": "pi05",
@@ -26,7 +26,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "water_pouring": {
       "family": "pi05",
@@ -36,7 +36,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "handle_basket": {
       "family": "pi05",
@@ -46,7 +46,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "items_handover": {
       "family": "pi05",
@@ -56,7 +56,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "drawer_open_place": {
       "family": "pi05",
@@ -66,7 +66,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "mixer_operating": {
       "family": "pi05",
@@ -76,7 +76,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "item_assembly": {
       "family": "pi05",
@@ -86,7 +86,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "manipulate_pipette": {
       "family": "pi05",
@@ -96,7 +96,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     },
     "sample_loading": {
       "family": "pi05",
@@ -106,7 +106,7 @@
         "pi0_step": 50
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "2356a9147d95d98e9959b7a34ce5eae7a4ff806d"
+      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
     }
   }
 }
