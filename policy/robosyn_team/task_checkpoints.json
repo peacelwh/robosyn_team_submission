@@ -1,7 +1,7 @@
 {
   "schema_version": "robosyn.submission.v1",
-  "generated_at": "2026-10-06",
-  "note": "robosyn_team final: F7-40k, one multi-task pi0.5 checkpoint (official synthetic data + expert demos, including demos under widened randomization ranges) for all ten tasks, pinned HF revision.",
+  "generated_at": "2026-10-11",
+  "note": "robosyn_team final: F7-40k, one multi-task pi0.5 checkpoint for all ten tasks (pinned HF revision); manipulate_pipette uses the runtime deadline retry (watchdog.retry_at), which only uses the policy own step count and joint commands.",
   "defaults": {
     "hf_revision": null,
     "checkpoint_marker": "config.json",
@@ -93,7 +93,14 @@
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "watchdog": {
+          "retry_at": 320,
+          "rewind_to": 175,
+          "rewind_stride": 4,
+          "max_retries": 4,
+          "stall_eps": 0
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
       "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"

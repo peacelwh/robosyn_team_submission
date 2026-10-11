@@ -250,7 +250,7 @@ class PI05Model:
     def __init__(self, checkpoint_dir: Path, train_config_name: str, pi0_step: int,
                  pytorch_device: str = "cuda", gripper_scale: float = 1.0, flow_steps: int | None = None,
                  noise_temp: float = 1.0, speed: float = 1.0, noise_seed: int = 0, watchdog: dict | None = None,
-                 rtc: dict | None = None):
+                 rtc: dict | None = None, vote: dict | None = None):
         checkpoint_dir = Path(checkpoint_dir)
         device = choose_device(checkpoint_dir, train_config_name)
         if device == "cpu":
@@ -323,6 +323,13 @@ class PI05Model:
             self.rtc = dict(beta=float(rtc.get("beta", 5.0)), schedule=str(rtc.get("schedule", "exp")))
             _install_rtc_sampler(self.policy, flow_steps)
         self._prev_raw = None
+        # Consensus selection (training-free test-time scaling, cf. majority voting over sampled
+        # chunks in RoboMonkey / KeyStone): sample ``n`` chunks with independent noise and execute
+        # the medoid, i.e. the chunk with the smallest summed distance (mean L2 over its first
+        # ``horizon`` actions) to the other candidates.  Off by default; not combined with rtc.
+        self.vote = None
+        if vote and int(vote.get("n", 1)) > 1:
+            self.vote = dict(n=int(vote["n"]), horizon=int(vote.get("horizon", 25)))
         self.instruction = None
         self.observation_window = None
         print(f"[robosyn_team] π0.5 loaded: {checkpoint_dir} (asset {asset_id}, JAX device {self.jax_device})")
@@ -354,7 +361,9 @@ class PI05Model:
                 prev[len(tail):] = tail[-1] if len(tail) else 0.0
                 weights = _prefix_weights(horizon - s, horizon, self.rtc["schedule"])
             self.policy._sample_kwargs.update(prev_chunk=prev, weights=weights, beta=np.float32(self.rtc["beta"]))
-        if self.noise_temp != 1.0:
+        if self.vote is not None and self.rtc is None:
+            actions = self._consensus_chunk()
+        elif self.noise_temp != 1.0:
             noise = np.sqrt(self.noise_temp) * self._noise_rng.standard_normal(self.noise_shape)
             actions = self.policy.infer(self.observation_window, noise=noise.astype(np.float32))["actions"]
         else:
@@ -366,6 +375,13 @@ class PI05Model:
             actions[..., GRIPPER_DIMS] *= self.gripper_scale
         return actions
 
+    def _consensus_chunk(self):
+        cands = []
+        for _ in range(self.vote["n"]):
+            noise = np.sqrt(self.noise_temp) * self._noise_rng.standard_normal(self.noise_shape)
+            cands.append(np.asarray(self.policy.infer(self.observation_window, noise=noise.astype(np.float32))["actions"]))
+        return cands[consensus_index(cands, self.vote["horizon"])]
+
     def reset(self):
         self.instruction = None
         self.observation_window = None
@@ -376,11 +392,16 @@ class PI05Model:
 
 class Watchdog:
     """Inference-time failure recovery (no privileged information: only the robot's own joint state
-    and the commands already sent).  Two triggers, both computed from proprioception:
+    and the commands already sent).  Three triggers, all computed from proprioception or step counts:
       * missed grasp: a monitored gripper has been commanded closed (< 0.2) for ``closed_steps``
         consecutive steps but its measured opening is below that gripper's threshold, i.e. it
         closed on nothing (holding widths come from the task's demonstrations);
-      * stall: the arm joints moved less than ``stall_eps`` over ``stall_chunks`` whole chunks.
+      * stall: the arm joints moved less than ``stall_eps`` over ``stall_chunks`` whole chunks;
+      * deadline (``retry_at`` > 0): the episode is still running ``retry_at`` steps into the current
+        attempt.  The evaluator ends an episode as soon as the task succeeds, so still being called
+        means the attempt failed (only the policy's own step count is used).  The arms are replayed
+        back along their own path, every ``rewind_stride``-th command, to the command executed at
+        step ``rewind_to`` (grippers held as they are), and the policy attempts the phase again.
     Recovery replays the last ``backoff`` executed commands in reverse (back along the approach
     path; for a missed grasp with that gripper commanded open) and lets the next inference start
     from the new state with fresh noise.  At most ``max_retries`` recoveries per episode."""
@@ -388,11 +409,13 @@ class Watchdog:
     ARM_DIMS = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12]
 
     def __init__(self, grippers: str = "", closed_steps: int = 15, stall_chunks: int = 2,
-                 stall_eps: float = 0.02, backoff: int = 25, max_retries: int = 3):
+                 stall_eps: float = 0.02, backoff: int = 25, max_retries: int = 3,
+                 retry_at: int = 0, rewind_to: int = 150, rewind_stride: int = 4):
         # grippers: "dim:threshold,..." e.g. "6:0.15,13:0.15"; empty = no missed-grasp check
         self.grippers = {int(d): float(t) for d, t in (x.split(":") for x in str(grippers).split(",") if x)}
         self.closed_steps, self.stall_chunks = int(closed_steps), int(stall_chunks)
         self.stall_eps, self.backoff, self.max_retries = float(stall_eps), int(backoff), int(max_retries)
+        self.retry_at, self.rewind_to, self.rewind_stride = int(retry_at), int(rewind_to), max(1, int(rewind_stride))
         self.reset()
 
     def reset(self):
@@ -408,6 +431,7 @@ class Watchdog:
         self.chunk_starts = []     # arm joint state at the start of each chunk
         self.retries = 0
         self.events = []
+        self.next_retry = self.retry_at   # deadline trigger: step count at which a retry is due
 
     def on_chunk_start(self, state):
         self.chunk_starts.append(np.asarray(state, dtype=np.float32)[self.ARM_DIMS])
@@ -426,6 +450,30 @@ class Watchdog:
             else:
                 self.closed_run[d] = 0
         return None
+
+    def deadline_due(self):
+        return (self.retry_at > 0 and self.retries < self.max_retries
+                and len(self.history) >= self.next_retry > self.rewind_to)
+
+    def rewind(self):
+        """Replay the commands since step ``rewind_to`` in reverse (every ``rewind_stride``-th, ending
+        exactly on the command of step ``rewind_to``), grippers held at their current command."""
+        self.retries += 1
+        back = list(reversed(self.history[self.rewind_to:]))
+        plan = [a.copy() for a in back[self.rewind_stride - 1::self.rewind_stride]]
+        if not plan or not np.array_equal(plan[-1], back[-1]):
+            plan.append(back[-1].copy())
+        held = self.history[-1][GRIPPER_DIMS]
+        for a in plan:
+            a[GRIPPER_DIMS] = held
+        self.next_retry = len(self.history) + len(plan) + (self.retry_at - self.rewind_to)
+        for d in self.closed_run:
+            self.closed_run[d] = 0
+        self.chunk_starts.clear()
+        self.events.append(("deadline", None, len(self.history)))
+        print(f"[robosyn_team] watchdog: deadline after {len(self.history)} steps -> rewind to step {self.rewind_to} "
+              f"in {len(plan)} steps (retry {self.retries}/{self.max_retries}, next check at {self.next_retry})")
+        return plan
 
     def stalled(self, state):
         if self.retries >= self.max_retries or len(self.chunk_starts) <= self.stall_chunks:
@@ -449,6 +497,13 @@ class Watchdog:
         self.events.append((kind, gripper, len(self.history)))
         print(f"[robosyn_team] watchdog: {kind}{'' if gripper is None else f' (gripper {gripper})'} after {len(self.history)} steps -> back off {len(plan)} steps (retry {self.retries}/{self.max_retries})")
         return plan
+
+
+def consensus_index(cands, horizon: int) -> int:
+    """Index of the medoid chunk: smallest summed mean-L2 distance (first ``horizon`` steps) to the rest."""
+    a = np.stack([np.asarray(c, dtype=np.float32)[:horizon] for c in cands])          # n x h x d
+    dist = np.linalg.norm(a[:, None] - a[None, :], axis=-1).mean(-1)                    # n x n
+    return int(np.argmin(dist.sum(1)))
 
 
 def _prefix_weights(end: int, total: int, schedule: str = "exp") -> np.ndarray:
@@ -563,6 +618,7 @@ def get_model(usr_args, checkpoint_dir: Path):
         noise_seed=int(usr_args.get("noise_seed", 0)),
         watchdog=usr_args.get("watchdog") or None,
         rtc=usr_args.get("rtc") or None,
+        vote=usr_args.get("vote") or None,
     )
 
 
@@ -619,6 +675,9 @@ def eval(env, model, obs):
             missed = wd.after_step(action, _qpos(final_obs))
             if missed is not None:
                 recovery = wd.recovery("missed_grasp", missed)
+                break
+            if wd.deadline_due():
+                recovery = wd.rewind()
                 break
     if recovery is None and wd is not None and wd.stalled(_qpos(final_obs)):
         recovery = wd.recovery("stall")

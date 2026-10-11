@@ -72,6 +72,13 @@ Notes for the evaluation machine:
   support, or miscompiles on, a new GPU generation. The CPU fallback uses the
   same model and is only slower per call. Set `ROBOSYN_PI05_DEVICE=gpu` or `cpu`
   to force a choice.
+* **Inference-time retry (manipulate_pipette only):** `task_checkpoints.json` sets
+  `usr_args.watchdog.retry_at` for this task.  The evaluator ends an episode as soon as the
+  task succeeds, so if the policy is still being called 320 steps into an attempt, that attempt
+  has failed; the runtime then replays its own executed joint commands in reverse (every 4th
+  command) back to the pose of step 175, before the pressing phase, and lets the policy try
+  again, at most 4 times per episode.  Only the policy's own step count and command history
+  are used (no simulator state, no success flag).  All other tasks run the plain policy.
 * **Simulator crash guard:** DexSim 0.4.3 occasionally segfaults while it loads the
   robot, before the first episode, and sometimes in its teardown after the results
   are written. `eval.sh` restarts the evaluator (up to `ROBOSYN_EVAL_RETRIES`, default
