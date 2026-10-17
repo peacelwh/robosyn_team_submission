@@ -355,6 +355,33 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
         )
 
 @dataclasses.dataclass(frozen=True)
+class _EmbodiChainDatasetAliases:
+    """Normalize the two RoboSyn LeRobot schemas before repacking.
+
+    Older EmbodiChain datasets use ``cam_*.color`` and
+    ``observation.qpos`` while newer RoboSynChallenge releases use the
+    canonical LeRobot names ``observation.images.cam_*`` and
+    ``observation.state``.  Mixed-domain training can contain samples from
+    both schemas in the same loader, so this has to be resolved per sample
+    rather than once from the configured repository.
+    """
+
+    def __call__(self, data: dict) -> dict:
+        aliases = {
+            "cam_high.color": "observation.images.cam_high",
+            "cam_left_wrist.color": "observation.images.cam_left_wrist",
+            "cam_right_wrist.color": "observation.images.cam_right_wrist",
+            "observation.qpos": "observation.state",
+        }
+        missing_aliases = {
+            legacy: data[canonical]
+            for legacy, canonical in aliases.items()
+            if legacy not in data and canonical in data
+        }
+        return {**data, **missing_aliases}
+
+
+@dataclasses.dataclass(frozen=True)
 class LeRobotEmbodiChainDataConfig(DataConfigFactory):
     """
     This config is used to configure transforms that are applied at various parts of the data pipeline.
@@ -376,6 +403,7 @@ class LeRobotEmbodiChainDataConfig(DataConfigFactory):
         # The repack transform simply remaps key names here.
         repack_transform = _transforms.Group(
             inputs=[
+                _EmbodiChainDatasetAliases(),
                 _transforms.RepackTransform(
                     {
                         "observation/image": "cam_high.color",

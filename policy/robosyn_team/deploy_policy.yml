@@ -1,0 +1,29 @@
+# RoboSynChallenge submission: robosyn_team per-task router (see README.md)
+policy_name: robosyn_team
+task_name: null
+setting: null
+model_name: robosyn_team
+seed: 0
+max_episodes: 20
+max_steps: 1000 # effective limit is max(deploy_config.max_steps, gym_config.max_episode_steps)
+headless: true
+device: cpu        # env tensors stay on CPU like the official configs (task experts call .numpy())
+renderer: hybrid
+gpu_id: 0
+pytorch_device: cuda
+num_envs: 1
+filter_dataset_saving: true
+eval_video_log: true
+eval_video_obs_keys:
+  - cam_high
+  - cam_right_wrist
+  - cam_left_wrist
+eval_reset_sync_steps: 1
+eval_expert_check: true
+
+# ------------------------------------------------------------------
+# robosyn_team parameters (task -> family/checkpoint routing)
+# ------------------------------------------------------------------
+task_manifest: policy/robosyn_team/task_checkpoints.json
+state_obs_path: robot/qpos
+strict_action_dim: true
