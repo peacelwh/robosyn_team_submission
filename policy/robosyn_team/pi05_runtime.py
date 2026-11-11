@@ -77,7 +77,7 @@ def encode_obs(obs, env_index: int = 0):
     state = _to_numpy(obs["robot"]["qpos"])
     if state.ndim > 1:
         state = state[env_index]
-    return images, np.asarray(state, dtype=np.float32).reshape(-1)
+    return images, _joint14(state)
 
 
 def format_action(action, env):
@@ -250,7 +250,7 @@ class PI05Model:
     def __init__(self, checkpoint_dir: Path, train_config_name: str, pi0_step: int,
                  pytorch_device: str = "cuda", gripper_scale: float = 1.0, flow_steps: int | None = None,
                  noise_temp: float = 1.0, speed: float = 1.0, noise_seed: int = 0, watchdog: dict | None = None,
-                 rtc: dict | None = None, vote: dict | None = None):
+                 rtc: dict | None = None, vote: dict | None = None, runtime: dict | None = None):
         checkpoint_dir = Path(checkpoint_dir)
         device = choose_device(checkpoint_dir, train_config_name)
         if device == "cpu":
@@ -310,11 +310,20 @@ class PI05Model:
         # chunks); speed > 1 replays each chunk faster by resampling it in time (fewer env steps).
         self.noise_temp = float(noise_temp)
         self.speed = float(speed)
-        if not (0.0 < self.noise_temp <= 1.0) or not (1.0 <= self.speed <= 2.0):
-            raise ValueError(f"noise_temp must be in (0, 1] and speed in [1, 2]: {noise_temp}, {speed}")
+        # speed > 1 replays each chunk faster (resample_chunk); the real robot is driven at 10 Hz while the chunks are on
+        # the 25 Hz simulation timebase, so 2.5 reproduces the trained pace there and larger values move faster.
+        if not (0.0 < self.noise_temp <= 1.0) or not (1.0 <= self.speed <= 6.0):
+            raise ValueError(f"noise_temp must be in (0, 1] and speed in [1, 6]: {noise_temp}, {speed}")
         self.noise_shape = (int(config.model.action_horizon), int(config.model.action_dim))
         self._noise_rng = np.random.default_rng(int(noise_seed))
         self.watchdog = Watchdog(**watchdog) if watchdog else None
+        # Real-robot execution guards (runtime_guards.py): chunk-seam blending, per-step joint limit,
+        # step budget and stall recovery.  None unless the task's usr_args.runtime is set.
+        self.guard = None
+        if runtime:
+            from .runtime_guards import RuntimeGuard
+
+            self.guard = RuntimeGuard(**runtime)
         # Real-time chunking (Black et al. 2025, training-free): every chunk after the first is guided
         # towards the not-yet-executed tail of the previous chunk, so short execution horizons
         # (pi0_step < 50) replan often without discontinuities between chunks.
@@ -388,6 +397,8 @@ class PI05Model:
         self._prev_raw = None
         if self.watchdog is not None:
             self.watchdog.reset()
+        if self.guard is not None:
+            self.guard.reset()
 
 
 class Watchdog:
@@ -454,6 +465,10 @@ class Watchdog:
     def deadline_due(self):
         return (self.retry_at > 0 and self.retries < self.max_retries
                 and len(self.history) >= self.next_retry > self.rewind_to)
+
+    def rewind_cost(self):
+        """Number of commands ``rewind`` would replay now (for the step-budget check)."""
+        return -(-len(self.history[self.rewind_to:]) // self.rewind_stride)
 
     def rewind(self):
         """Replay the commands since step ``rewind_to`` in reverse (every ``rewind_stride``-th, ending
@@ -619,7 +634,16 @@ def get_model(usr_args, checkpoint_dir: Path):
         watchdog=usr_args.get("watchdog") or None,
         rtc=usr_args.get("rtc") or None,
         vote=usr_args.get("vote") or None,
+        runtime=_runtime_args(usr_args),
     )
+
+
+def _runtime_args(usr_args):
+    """usr_args.runtime with the step budget defaulting to the deploy config's max_steps (1000)."""
+    runtime = usr_args.get("runtime") or None
+    if runtime and "step_budget" not in runtime and usr_args.get("max_steps"):
+        runtime = dict(runtime, step_budget=int(usr_args["max_steps"]))
+    return runtime
 
 
 def resample_chunk(actions, speed: float):
@@ -655,6 +679,9 @@ def eval(env, model, obs):
     images, state = encode_obs(obs)
     model.update_observation_window(images, state)
     actions = resample_chunk(model.get_action()[: model.pi0_step], getattr(model, "speed", 1.0))
+    guard = getattr(model, "guard", None)
+    if guard is not None:
+        actions = guard.prepare(actions, state)
     action_tensors = [format_action(action, env) for action in actions]
     finish_inference(started_at, inference_times_s, model.pytorch_device)
 
@@ -667,34 +694,56 @@ def eval(env, model, obs):
     recovery = None
     for action, action_tensor in zip(actions, action_tensors):
         final_obs, _reward, _terminated, truncated, info = env.step(action_tensor)
+        if guard is not None:
+            guard.record(action, _qpos(final_obs))
         if env.get_wrapper_attr("is_task_success")():
             return final_obs, info, truncated, inference_times_s
         if _as_done(truncated):
             return final_obs, info, truncated, inference_times_s
         if wd is not None:
             missed = wd.after_step(action, _qpos(final_obs))
-            if missed is not None:
+            if missed is not None and (guard is None or guard.budget_allows(wd.backoff)):
                 recovery = wd.recovery("missed_grasp", missed)
                 break
-            if wd.deadline_due():
+            if wd.deadline_due() and (guard is None or guard.budget_allows(wd.rewind_cost())):
                 recovery = wd.rewind()
                 break
-    if recovery is None and wd is not None and wd.stalled(_qpos(final_obs)):
+        if guard is not None:
+            recovery = guard.check_stall()
+            if recovery is not None:
+                break
+    if (recovery is None and wd is not None and wd.stalled(_qpos(final_obs))
+            and (guard is None or guard.budget_allows(wd.backoff))):
         recovery = wd.recovery("stall")
-    for action in recovery or ():
+    if recovery and guard is not None:
+        recovery = guard.prepare(recovery, seam=False)
+    for action in recovery if recovery is not None else ():
         final_obs, _reward, _terminated, truncated, info = env.step(format_action(action, env))
-        wd.history.append(action)
-        wd.states.append(_qpos(final_obs))
+        if wd is not None:
+            wd.history.append(action)
+            wd.states.append(_qpos(final_obs))
+        if guard is not None:
+            guard.record(action, _qpos(final_obs))
         if env.get_wrapper_attr("is_task_success")() or _as_done(truncated):
             break
     return final_obs, info, truncated, inference_times_s
+
+
+JOINT14_FROM_32 = list(range(0, 7)) + list(range(16, 23))   # the real robot's 32-dim state -> left arm+gripper, right arm+gripper
+
+
+def _joint14(state: np.ndarray) -> np.ndarray:
+    state = np.asarray(state, dtype=np.float32).reshape(-1)
+    if state.shape[0] == 32:
+        state = state[JOINT14_FROM_32]
+    return state
 
 
 def _qpos(obs, env_index: int = 0):
     state = _to_numpy(obs["robot"]["qpos"])
     if state.ndim > 1:
         state = state[env_index]
-    return np.asarray(state, dtype=np.float32).reshape(-1)
+    return _joint14(state)
 
 
 def reset_model(model):

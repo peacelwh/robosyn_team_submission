@@ -26,6 +26,10 @@ fi
 }
 echo "download_checkpoints.sh: using $PYTHON_BIN"
 # Slow or distant links (e.g. a mirror) need longer timeouts than huggingface_hub's 10 s defaults.
+# Plain HTTP downloads by default: the checkpoint is stored in Hugging Face Xet, and with hf_xet installed
+# huggingface_hub fetches a Xet token from huggingface.co even when HF_ENDPOINT points to a mirror, so machines
+# that reach the Hub only through a mirror could not download it.  Plain HTTP works with the Hub and mirrors alike.
+export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
 export HF_HUB_DOWNLOAD_TIMEOUT="${HF_HUB_DOWNLOAD_TIMEOUT:-120}" HF_HUB_ETAG_TIMEOUT="${HF_HUB_ETAG_TIMEOUT:-60}"
 MANIFEST="${ROBOSYN_TASK_MANIFEST:-$SCRIPT_DIR/task_checkpoints.json}"
 "$PYTHON_BIN" - "$SCRIPT_DIR" "$MANIFEST" "$@" <<'PY'
@@ -43,6 +47,30 @@ def target(spec, task):
     rev = (spec.get("hf_revision") or "main")[:12]
     return root / f"{spec['hf_repo'].replace('/', '__')}@{rev}"
 
+ATTEMPTS = int(os.environ.get("ROBOSYN_DOWNLOAD_ATTEMPTS", "8"))
+
+def check(dest):
+    """(number of files, problems) against robosyn_export_manifest.json; (None, []) if the repo ships none."""
+    manifest_file = dest / "robosyn_export_manifest.json"
+    if not manifest_file.is_file():
+        return None, []
+    files = json.loads(manifest_file.read_text()).get("files", {})
+    items = list(files.items()) if isinstance(files, dict) else [(f["path"], f) for f in files]
+    problems = []
+    for rel, info in items:
+        info = info if isinstance(info, dict) else {"sha256": info}
+        path = dest / rel
+        if not path.is_file():
+            problems.append((rel, "missing"))
+            continue
+        digest = hashlib.sha256()
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 22), b""):
+                digest.update(chunk)
+        if digest.hexdigest() != info.get("sha256"):
+            problems.append((rel, "sha256 mismatch"))
+    return len(items), problems
+
 seen = {}
 for task, entry in manifest["tasks"].items():
     if only and task not in only:
@@ -58,33 +86,32 @@ for task, entry in manifest["tasks"].items():
         continue
     seen[key] = task
     print(f"{task}: {key[0]}@{key[1] or 'main'} -> {dest}")
-    # Retry interrupted downloads (snapshot_download resumes the files it already has).
-    for attempt in range(1, 7):
+    # Retry until the sha256 list of the export is complete.  snapshot_download resumes the files it already has,
+    # but when the Hub API cannot be reached (e.g. a mirror's "429 Too Many Requests") it RETURNS the partial
+    # local_dir instead of raising, so the return value alone does not mean the download is complete.
+    for attempt in range(1, ATTEMPTS + 1):
+        error = None
         try:
             snapshot_download(repo_id=key[0], revision=key[1], repo_type="model", local_dir=str(dest))
-            break
         except Exception as exc:  # network timeouts, mirror hiccups
-            if attempt == 6:
-                raise
-            wait = min(60, 10 * attempt)
-            print(f"  download attempt {attempt}/6 failed ({type(exc).__name__}: {str(exc)[:120]}); retrying in {wait} s")
-            time.sleep(wait)
-    # Integrity: every file listed in the export manifest must match its sha256.
-    manifest_file = dest / "robosyn_export_manifest.json"
-    if manifest_file.is_file():
-        files = json.loads(manifest_file.read_text()).get("files", {})
-        items = list(files.items()) if isinstance(files, dict) else [(f["path"], f) for f in files]
-        bad = []
-        for rel, info in items:
-            info = info if isinstance(info, dict) else {"sha256": info}
-            digest = hashlib.sha256()
-            with open(dest / rel, "rb") as fh:
-                for chunk in iter(lambda: fh.read(1 << 22), b""):
-                    digest.update(chunk)
-            if digest.hexdigest() != info.get("sha256"):
-                bad.append(rel)
-        if bad:
-            sys.exit(f"{dest}: {len(bad)} file(s) do not match robosyn_export_manifest.json, e.g. {bad[:3]}; delete them and re-run")
-        print(f"  verified {len(items)} files against robosyn_export_manifest.json")
+            error = f"{type(exc).__name__}: {str(exc)[:120]}"
+        if error is None:
+            n, problems = check(dest)
+            if n is None:
+                print("  warning: no robosyn_export_manifest.json in this repo; files not verified")
+                break
+            if not problems:
+                print(f"  verified {n} files against robosyn_export_manifest.json")
+                break
+            for rel, why in problems:
+                if why != "missing":
+                    (dest / rel).unlink()  # corrupted: delete so that the next attempt fetches it again
+            error = f"{len(problems)} of {n} files missing or corrupted, e.g. {problems[:2]}"
+        if attempt == ATTEMPTS:
+            sys.exit(f"{task}: {key[0]}@{key[1] or 'main'} still incomplete after {ATTEMPTS} attempts ({error}). "
+                     "Re-run this script to resume (finished files are kept).")
+        wait = min(60, 10 * attempt)
+        print(f"  download attempt {attempt}/{ATTEMPTS} incomplete ({error}); retrying in {wait} s")
+        time.sleep(wait)
 print(f"downloaded {len(seen)} distinct checkpoint(s)")
 PY

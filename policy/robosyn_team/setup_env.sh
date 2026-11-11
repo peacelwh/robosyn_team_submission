@@ -68,7 +68,10 @@ echo "[robosyn_team] 2/3 dexsim-engine 0.4.3 (required by EmbodiChain v0.2.4)"
 if [[ -n "${ROBOSYN_DEXSIM_FIND_LINKS:-}" ]]; then
     "$UV" pip install --python "$PY" --no-deps --no-index --find-links "$ROBOSYN_DEXSIM_FIND_LINKS" "dexsim-engine==0.4.3"
 else
-    "$UV" pip install --python "$PY" --no-deps --index-url "$DEXSIM_INDEX" \
+    # --default-index, not --index-url: a UV_DEFAULT_INDEX (or uv.toml default-index) mirror setting would override
+    # --index-url, and the mirror has no dexsim-engine ("not found in the package registry"); uv < 0.4.23 lacks it.
+    idx=--default-index; "$UV" pip install --help 2>/dev/null | grep -- --default-index >/dev/null || idx=--index-url
+    "$UV" pip install --python "$PY" --no-deps "$idx" "$DEXSIM_INDEX" \
         --allow-insecure-host pyp.open3dv.site:2345 "dexsim-engine==0.4.3"
 fi
 

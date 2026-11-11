@@ -1,7 +1,7 @@
 {
   "schema_version": "robosyn.submission.v1",
-  "generated_at": "2026-10-11",
-  "note": "robosyn_team final: F7-40k, one multi-task pi0.5 checkpoint for all ten tasks (pinned HF revision); manipulate_pipette uses the runtime deadline retry (watchdog.retry_at), which only uses the policy own step count and joint commands.",
+  "generated_at": "2026-11-10",
+  "note": "robosyn_team FINALS (real robot): one multi-task pi0.5 checkpoint for all ten tasks = weight average of four v2mix2 95k runs (seeds 45000/46000/49000/50000, C2L@74999 +20000 steps, 50% real / 50% sim v2mix2, real data time-scaled x2). usr_args.speed = 1.25 (human demo pace) for item_assembly/manipulate_pipette/sample_loading/water_pouring, 1.5 elsewhere; usr_args.runtime = chunk-seam smoothing (5), per-step joint limit 0.15 rad, 1000-step budget, stall watchdog, arm joints clipped to the simulation URDF limits (RoboSynChallenge 45d9b9c).",
   "defaults": {
     "hf_revision": null,
     "checkpoint_marker": "config.json",
@@ -13,80 +13,416 @@
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.5,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "click_bell": {
       "family": "pi05",
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.5,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "water_pouring": {
       "family": "pi05",
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.25,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "handle_basket": {
       "family": "pi05",
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.5,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "items_handover": {
       "family": "pi05",
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.5,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "drawer_open_place": {
       "family": "pi05",
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.5,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "mixer_operating": {
       "family": "pi05",
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.5,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "item_assembly": {
       "family": "pi05",
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.25,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "manipulate_pipette": {
       "family": "pi05",
@@ -94,26 +430,103 @@
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
         "pi0_step": 50,
-        "watchdog": {
-          "retry_at": 320,
-          "rewind_to": 175,
-          "rewind_stride": 4,
-          "max_retries": 4,
-          "stall_eps": 0
+        "speed": 1.25,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
         }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     },
     "sample_loading": {
       "family": "pi05",
       "checkpoint_marker": "params",
       "usr_args": {
         "train_config_name": "pi05_base_robosynchallenge_full",
-        "pi0_step": 50
+        "pi0_step": 50,
+        "speed": 1.25,
+        "runtime": {
+          "step_budget": 1000,
+          "min_attempt": 100,
+          "seam_steps": 5,
+          "max_joint_step": 0.15,
+          "stall": {
+            "steps": 50,
+            "eps": 0.01,
+            "backoff": 40,
+            "stride": 2,
+            "max_retries": 2,
+            "min_motion": 0.2,
+            "release_guard": 30
+          },
+          "joint_limits": {
+            "waist": [
+              -2.6163,
+              2.6163
+            ],
+            "shoulder": [
+              0.0017,
+              3.1383
+            ],
+            "elbow": [
+              -2.9653,
+              -0.0017
+            ],
+            "forearm_roll": [
+              -1.7433,
+              1.7433
+            ],
+            "wrist_angle": [
+              -1.2983,
+              1.2983
+            ],
+            "wrist_rotate": [
+              -2.9863,
+              2.9863
+            ]
+          }
+        }
       },
       "hf_repo": "Bluexxx/pi05_robosyn_all10",
-      "hf_revision": "4956f6e3a19f16b5c51a8527c973a2a45c4af7bc"
+      "hf_revision": "4a3d4288be3c81dfbc42369a574789509d5762d6"
     }
   }
 }

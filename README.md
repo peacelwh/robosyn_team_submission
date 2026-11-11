@@ -16,6 +16,7 @@ policy/robosyn_team/
 ├── download_checkpoints.sh  # fetch each distinct repo@revision once (offline evaluation afterwards)
 ├── setup_env.sh           # builds policy/pi05/.venv: official uv.lock + dexsim-engine 0.4.3 (see below)
 ├── pi05_runtime.py        # self-contained π0.5 loader/runner (see "π0.5 tasks")
+├── runtime_guards.py      # finals real-robot guards (usr_args.runtime): chunk-seam blend, joint step/limit clip, step budget
 └── task_checkpoints.json  # task -> family, Hugging Face repo/revision, rollout parameters
 ```
 
@@ -50,14 +51,26 @@ Notes for the evaluation machine:
   RTX 5090.  A cu128 torch is therefore not needed; it was not validated (it also
   upgrades the CUDA libraries that JAX shares), so please keep the locked build.
   This setup was verified closed loop on RTX 5090 (driver 580), RTX 4090D (driver
-  580) and RTX 3090 (driver 535).
+  580) and RTX 3090 (driver 535).  **Clean install, 2026-11-11:** fresh clones of
+  RoboSynChallenge `45d9b9c` (main) and EmbodiChain `v0.2.4.post1` (the tag in the current
+  installation guide; v0.2.4 behaves the same) on RTX 5090 pods, this directory copied in,
+  `setup_env.sh` unchanged, the checkpoint fetched with `download_checkpoints.sh` through a Hub
+  mirror (byte-identical to the evaluated export), then all ten tasks through `eval.sh`: exit 0,
+  π0.5 on the GPU, self-check ok, runtime guards active.
 * **Slow networks:** `setup_env.sh` raises uv's download timeout to 600 s (`UV_HTTP_TIMEOUT`) and
   retries `uv sync` up to three times; the large CUDA wheels otherwise time out on slow links.
   `download_checkpoints.sh` likewise uses longer Hugging Face timeouts, retries interrupted
   downloads and checks every file against the sha256 list shipped with the checkpoint.
+  It downloads over plain HTTP (`HF_HUB_DISABLE_XET=1`, override by exporting it): the weights are
+  stored in Hugging Face Xet, and with `hf_xet` installed the Xet path contacts huggingface.co even
+  when `HF_ENDPOINT` is set to a mirror.
 * **ffmpeg:** the official evaluator records episode videos through `ffmpeg`
   (`eval_video_log: true` in `deploy_policy.yml`, as in the official baselines), so
   `ffmpeg` must be on `PATH`.
+* **System libraries:** DexSim 0.4.3 needs `libOpenGL.so.0` (Ubuntu `libopengl0`) and
+  `libGLU.so.1` (`libglu1-mesa`) besides the NVIDIA GL/Vulkan userspace of the driver.  The
+  official `dexforce/embodichain` Docker image has them; a bare Ubuntu 24.04 host may not
+  (`setup_env.sh`'s import check then fails with "cannot open shared object file").
 * **Short paths:** DexSim 0.4.3 aborts in `OptiXMaterialMgr::CreateMaterial`
   (`DFString.h:94`) when the checkout sits under a long directory prefix (we hit it
   with a 44-character prefix).  Keep `RoboSynChallenge/` and `EmbodiChain/` under a
@@ -87,6 +100,22 @@ Notes for the evaluation machine:
   the metrics were saved is reported as success. Python errors are not retried.
 * `usr_args.gripper_scale` (per task, default 1) rescales the two gripper
   commands, in case an environment's gripper convention changes.
+* **Real-robot execution guards (finals), `usr_args.runtime`** (`runtime_guards.py`;
+  absent = off, and the commands are then exactly those of the plain runtime).  The
+  real robot receives every command as it is, at 10 Hz, so the runtime can blend the
+  jump at each chunk seam over `seam_steps` commands, limit every command's change
+  to `max_joint_step` rad per arm joint (the change only), clip the arm joint
+  commands to the simulation URDF's joint limits when `joint_limits` is set (the
+  organisers' evaluation robot follows them; current URDF: J5 ±1.30, J6 ±2.988 rad),
+  count the commands it has sent against `step_budget`
+  (1000, the deploy config's `max_steps`) so that no recovery starts when the rest
+  of the budget could not complete an attempt, and recover from a stall (`stall`:
+  no arm command change above `eps` for `steps` commands -> go back along the
+  executed path with both grippers held, then let the policy try again; it stays
+  idle after a recent gripper release, when the task has probably just been
+  completed).  Only the policy's own commands and the observed joint state are
+  used.  `usr_args.speed` replays each chunk faster (1.25 = human demonstration
+  pace on the 10 Hz robot for our ts2 checkpoints).
 
 The per-task router described below (ACT / DP / SmolVLA families) is still
 supported, but this submission does not use it.
@@ -94,7 +123,7 @@ supported, but this submission does not use it.
 ## How the organisers run it
 
 ```bash
-# 1. Official workspace (EmbodiChain v0.2.4 + RoboSynChallenge main), then
+# 1. Official workspace (EmbodiChain v0.2.4.post1 + RoboSynChallenge main), then
 git clone <our repository> RoboSynChallenge_ws/robosyn_team_submission
 cp -r RoboSynChallenge_ws/robosyn_team_submission/policy/robosyn_team RoboSynChallenge/policy/
 
